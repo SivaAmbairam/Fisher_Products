@@ -115,10 +115,13 @@ if __name__ == '__main__':
         'x-requested-with': 'XMLHttpRequest',
     }
     soup = get_soup(url, headers)
-    all_products = soup.find_all('ul', class_='ul_categories_list list-categories')
+    all_products = soup.find_all('div', class_='category_group list_group collapsible')
     for single_products in all_products:
-        inner_href = single_products.find_all('a')
+        '''PRODUCT_CATEGORY'''
+        product_category = single_products.find('span', class_='filter_heading_name').text.strip()
+        inner_href = single_products.find_all('a', class_='')
         for single_href in inner_href:
+            product_sub_category = single_href.text.strip()
             href_split = str(single_href).split('/browse/', 1)[-1].split('/', 1)[0].strip()
             main_url = f'{base_url}{single_href["href"]}'
             print(f'main_url---------->{main_url}')
@@ -164,27 +167,24 @@ if __name__ == '__main__':
                                         main_name = ''
                                 except:
                                     main_name = ''
-                                if single_content.find('td', attrs={'data-title': 'Mfr. No.'}):
-                                    inner_name = strip_it(single_content.find('td', attrs={'data-title': 'Mfr. No.'}).text.strip())
-                                    content_name = f'{main_name} {inner_name}'
-                                    if single_content.find('td', attrs={'data-title': 'Temperature (Metric) Range'}):
-                                        other_name = single_content.find('td', attrs={'data-title': 'Temperature (Metric) Range'}).text.strip()
-                                        product_name = f'{content_name} {other_name}'
-                                    elif single_content.find('td', attrs={'data-title': 'Gauge'}):
-                                        Gauge_name = single_content.find('td', attrs={'data-title': 'Gauge'}).text.strip()
-                                        Gauge_name = f'{content_name} {Gauge_name}'
-                                        if single_content.find('td', attrs={'data-title': 'Nozzle Diameter (Metric)'}):
-                                            inner_data = single_content.find('td', attrs={'data-title': 'Nozzle Diameter (Metric)'}).text.strip()
-                                            nozzle_name = f'{Gauge_name} {inner_data}'
-                                            if single_content.find('td', attrs={'data-title': 'Color'}):
-                                                color_data = single_content.find('td', attrs={'data-title': 'Color'}).text.strip()
-                                                product_name = f'{nozzle_name} {color_data}'
-                                            else:
-                                                product_name = nozzle_name
-                                        else:
-                                            product_name = Gauge_name
+                                try:
+                                    extract_content = single_content.find('td', attrs={'data-title': 'Price'}).extract()
+                                    inner_extract = single_content.find('td', attrs={'data-title': 'Qty'}).extract()
+                                    other_extract = single_content.find('td', attrs={'data-type': 'addtocart'}).extract()
+                                except:
+                                    extract_content = ''
+
+                                if single_content.find('td', attrs={'data-title': re.compile('.*?')}):
+                                    title_list = []
+                                    title_content = single_content.find_all('td',  attrs={'data-title': re.compile('.*?')})
+                                    for single_title in title_content:
+                                        title_text = strip_it(single_title.text.strip())
+                                        title_list.append(title_text)
+                                    product_names = ', '.join(title_list)
+                                    if main_name in product_names:
+                                        product_name = product_names
                                     else:
-                                        product_name = content_name
+                                        product_name = f'{main_name}, {product_names}'
                                 else:
                                     product_name = main_name
                                 product_request = get_soup(product_url, headers)
@@ -225,7 +225,7 @@ if __name__ == '__main__':
                                     except:
                                         product_quantity = ''
                                 print('current datetime------>', datetime.now())
-                                dictionary = get_dictionary(product_ids=product_id, product_names=product_name,
+                                dictionary = get_dictionary(product_category=product_category, product_sub_category=product_sub_category, product_ids=product_id, product_names=product_name,
                                                             product_quantities=product_quantity,
                                                             product_prices=product_price, product_urls=product_url)
                                 articles_df = pd.DataFrame([dictionary])
@@ -299,7 +299,7 @@ if __name__ == '__main__':
                             if product_id in read_log_file():
                                 continue
                             print('current datetime------>', datetime.now())
-                            dictionary = get_dictionary(product_ids=product_id, product_names=product_name,
+                            dictionary = get_dictionary(product_category=product_category,  product_sub_category=product_sub_category, product_ids=product_id, product_names=product_name,
                                                         product_quantities=product_quantity,
                                                         product_prices=product_price, product_urls=product_url)
                             articles_df = pd.DataFrame([dictionary])
